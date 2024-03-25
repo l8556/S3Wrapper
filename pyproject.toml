@@ -8,6 +8,7 @@ repository='https://github.com/l8556/S3Wrapper.git'
 classifiers=[
     'Operating System :: OS Independent',
     "Programming Language :: Python :: 3 :: Only",
+    'Programming Language :: Python :: 3.7',
     'Programming Language :: Python :: 3.8',
     'Programming Language :: Python :: 3.9',
     'Programming Language :: Python :: 3.10',
@@ -17,7 +18,7 @@ classifiers=[
 ]
 
 [tool.poetry.dependencies]
-python = "^3.8"
+python = "^3.7"
 rich = "*"
 boto3 = "*"
 
