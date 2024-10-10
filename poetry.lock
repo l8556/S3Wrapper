@@ -21,13 +21,13 @@ crt = ["botocore[crt] (>=1.21.0,<2.0a0)"]
 
 [[package]]
 name = "botocore"
-version = "1.35.13"
+version = "1.35.37"
 description = "Low-level, data-driven core of boto 3."
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "botocore-1.35.13-py3-none-any.whl", hash = "sha256:dd8a8bb1946187c8eb902a3b856d3b24df63917e4f2c61a6bce7f3ea9f112761"},
-    {file = "botocore-1.35.13.tar.gz", hash = "sha256:f7ae62eab44d731a5ad8917788378316c79c7bceb530a8307ed0f3bca7037341"},
+    {file = "botocore-1.35.37-py3-none-any.whl", hash = "sha256:64f965d4ba7adb8d79ce044c3aef7356e05dd74753cf7e9115b80f477845d920"},
+    {file = "botocore-1.35.37.tar.gz", hash = "sha256:b2b4d29bafd95b698344f2f0577bb67064adbf1735d8a0e3c7473daa59c23ba6"},
 ]
 
 [package.dependencies]
@@ -39,7 +39,7 @@ urllib3 = [
 ]
 
 [package.extras]
-crt = ["awscrt (==0.21.2)"]
+crt = ["awscrt (==0.22.0)"]
 
 [[package]]
 name = "jmespath"
