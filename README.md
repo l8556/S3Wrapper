@@ -44,8 +44,10 @@ from S3Wrapper.S3Wrapper import S3Wrapper
 s3 = S3Wrapper(
     bucket_name='your-bucket-name',
     region='your-region',  # e.g., 'us-east-1'
-    # access_key='YOUR_ACCESS_KEY',  # Optional, will use ~/.s3/key if not provided
-    # secret_access_key='YOUR_SECRET_KEY'  # Optional, will use ~/.s3/private_key if not provided
+    # access_key='YOUR_ACCESS_KEY',  # Optional, will use 
+    # ~/.s3/key if not provided
+    # secret_access_key='YOUR_SECRET_KEY' 
+    # Optional, will use ~/.s3/private_key if not provided
 )
 
 # List all files in the bucket
