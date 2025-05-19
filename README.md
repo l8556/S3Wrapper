@@ -1,11 +1,12 @@
 # S3Wrapper
 
-S3Wrapper is a Python library that simplifies working with AWS S3. It provides an intuitive interface for uploading, downloading, deleting files, and retrieving metadata or hashes from S3 buckets.
+S3Wrapper is a Python library that simplifies working with AWS S3. It provides
+an intuitive interface for uploading, downloading, deleting files, and
+retrieving metadata or hashes from S3 buckets.
 
 ## Requirements
 
 * Python 3.9+
-
 
 ## Features
 
@@ -14,7 +15,8 @@ S3Wrapper is a Python library that simplifies working with AWS S3. It provides a
 * Retrieve object metadata, size, and SHA256 hash
 * Delete single or multiple objects
 * List all available buckets
-* Convenient authentication via boto3, with support for storing credentials in `~/.s3`
+* Convenient authentication via boto3, with support for storing
+  credentials in `~/.s3`
 
 ## Installation
 
@@ -30,6 +32,7 @@ By default, S3Wrapper will look for your AWS credentials in the `~/.s3` director
 
 * `~/.s3/key` - contains your AWS Access Key ID
 * `~/.s3/private_key` - contains your AWS Secret Access Key
+
 Alternatively, you can pass credentials directly when initializing S3Wrapper.
 
 ## Usage
@@ -72,4 +75,3 @@ s3.delete_from_list(['file1.txt', 'file2.txt'])
 # List all buckets
 buckets = s3.buckets_list()
 ```
-
