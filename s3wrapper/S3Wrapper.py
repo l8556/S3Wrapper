@@ -63,7 +63,9 @@ class S3Wrapper:
         :param stdout: Whether to print download information.
         :return: True if download is successful, False otherwise.
         """
-        print(f"[green]|INFO| Downloading {self.bucket}/{object_key} to {download_path}") if stdout else None
+        if stdout:
+            print(f"[green]|INFO| Downloading [cyan]{self.bucket}/{object_key}[/] to [cyan]{download_path}[/]")
+
         try:
             self.s3.download_file(self.bucket, object_key, download_path)
             return True
@@ -78,7 +80,9 @@ class S3Wrapper:
         :param object_key: Key of the object in the S3 bucket.
         :param stdout: Whether to print upload information.
         """
-        print(f"[green]|INFO| Uploading {basename(file_path)} to {self.bucket}/{object_key}") if stdout else None
+        if stdout:
+            print(f"[green]|INFO| Uploading [cyan]{basename(file_path)}[/] to [cyan]{self.bucket}/{object_key}[/]")
+
         self.s3.upload_file(file_path, self.bucket, object_key)
 
     def get_headers(self, object_key: str, stderr: bool = True) -> bool | dict:
@@ -91,10 +95,10 @@ class S3Wrapper:
         try:
             return self.s3.head_object(Bucket=self.bucket, Key=object_key)
         except self.s3.exceptions.ClientError:
-            print(f"[red]|ERROR| Object {object_key} not found.") if stderr else ...
+            print(f"[red]|ERROR| Object [cyan]{object_key}[/] not found.") if stderr else None
             return False
         except Exception as e:
-            print(f"[red]|ERROR| An Error when receiving headers: {str(e)}") if stderr else ...
+            print(f"[red]|ERROR| An Error when receiving headers: {str(e)}") if stderr else None
             return False
 
     def get_size(self, object_key: str) -> str | int:
@@ -125,19 +129,23 @@ class S3Wrapper:
         :param object_key: Key of the object in the S3 bucket.
         :param warning_msg: Whether to display a warning message before deletion.
         """
-        print(f"[red]|INFO| Deleting object: {object_key} from {self.bucket}")
+        print(f"[red]|INFO| Deleting object: [cyan]{object_key}[/] from [cyan]{self.bucket}[/]")
         Prompt.ask(f"[bold red]|WARNING|Are you sure you want to delete the object:") if warning_msg else None
         if self.get_headers(object_key):
             self.s3.delete_object(Bucket=self.bucket, Key=object_key)
         else:
-            print(f"[bold red]|ERROR| Can't delete object: {object_key}")
+            print(f"[bold red]|ERROR| Can't delete object: [cyan]{object_key}[/]")
 
     def delete_from_list(self, object_keys: list) -> None:
         """
         Delete multiple objects from the S3 bucket.
         :param object_keys: List of object keys to delete.
         """
-        print(f"[red]|INFO| List of objects to be removed from the bucket {self.bucket}: {object_keys}")
+        print(
+            f"[red]|INFO| List of objects to be removed from the bucket [cyan]{self.bucket}[/]: "
+            f"[cyan]{object_keys}[/]"
+        )
+
         if Prompt.ask("[bold red]|WARNING| Continue?", choices=['yes', 'no'], default='no') == 'yes':
             for obj in object_keys:
                 self.delete(obj, warning_msg=False)
@@ -160,4 +168,4 @@ class S3Wrapper:
         """
         if bucket_name in self.buckets_list():
             return bucket_name
-        raise S3Exception(f"[red]|ERROR| Bucket {bucket_name} not found.")
+        raise S3Exception(f"[red]|ERROR| Bucket [cyan]{bucket_name}[/] not found.")
