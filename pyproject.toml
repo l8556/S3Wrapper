@@ -18,7 +18,7 @@ classifiers=[
 [tool.poetry.dependencies]
 python = "^3.9"
 rich = "*"
-boto3 = "^1.37"
+boto3 = "^1.38"
 
 [build-system]
 requires = ["poetry-core"]
