@@ -2,18 +2,18 @@
 
 [[package]]
 name = "boto3"
-version = "1.40.42"
+version = "1.40.51"
 description = "The AWS SDK for Python"
 optional = false
 python-versions = ">=3.9"
 groups = ["main"]
 files = [
-    {file = "boto3-1.40.42-py3-none-any.whl", hash = "sha256:71ea8ca488e8b0d0a16b1b32816f8bab9aa66757c4122caf137ae2dbc95d7001"},
-    {file = "boto3-1.40.42.tar.gz", hash = "sha256:dbd8afc41f0cc759d0115c673e50bd1395b992a5c14627b56163cf35b86673c6"},
+    {file = "boto3-1.40.51-py3-none-any.whl", hash = "sha256:6aa81b9acb4eff87b5505ae26c948883a2015cc3308ce5168a9df6e00ab815d2"},
+    {file = "boto3-1.40.51.tar.gz", hash = "sha256:ed1b7750df07b2f2ece0141ff2ed0489db2ec2b5311a956d00a496b05fd4fadb"},
 ]
 
 [package.dependencies]
-botocore = ">=1.40.42,<1.41.0"
+botocore = ">=1.40.51,<1.41.0"
 jmespath = ">=0.7.1,<2.0.0"
 s3transfer = ">=0.14.0,<0.15.0"
 
