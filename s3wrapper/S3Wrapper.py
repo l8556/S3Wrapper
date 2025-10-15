@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import hashlib
 from os.path import basename
+from datetime import datetime
 
 from rich.prompt import Prompt
 
@@ -73,17 +74,22 @@ class S3Wrapper:
             print(f"[red]|ERROR| Object {object_key} not found.")
             return False
 
-    def upload(self, file_path: str, object_key: str,  stdout: bool = True) -> None:
+    def upload(self, file_path: str, object_key: str, stdout: bool = True, metadata: dict = None) -> None:
         """
         Upload a file to the S3 bucket.
         :param file_path: Local path of the file to upload.
         :param object_key: Key of the object in the S3 bucket.
         :param stdout: Whether to print upload information.
+        :param metadata: Dictionary of metadata to attach to the object.
         """
         if stdout:
             print(f"[green]|INFO| Uploading [cyan]{basename(file_path)}[/] to [cyan]{self.bucket}/{object_key}[/]")
 
-        self.s3.upload_file(file_path, self.bucket, object_key)
+        extra_args = {}
+        if metadata:
+            extra_args['Metadata'] = metadata
+
+        self.s3.upload_file(file_path, self.bucket, object_key, ExtraArgs=extra_args if extra_args else None)
 
     def get_headers(self, object_key: str, stderr: bool = True) -> bool | dict:
         """
@@ -109,6 +115,62 @@ class S3Wrapper:
         """
         headers = self.get_headers(object_key)
         return headers['ContentLength'] if headers else 0
+
+    def get_metadata(self, object_key: str) -> dict | None:
+        """
+        Get the metadata of an object in the S3 bucket.
+        :param object_key: Key of the object in the S3 bucket.
+        :return: Metadata of the object.
+        """
+        headers = self.get_headers(object_key)
+        return headers['Metadata'] if headers else None
+
+    def update_metadata(self, object_key: str, metadata: dict, stdout: bool = False) -> bool:
+        """
+        Update the metadata of an existing object in the S3 bucket.
+        This operation copies the object to itself with new metadata.
+        :param object_key: Key of the object in the S3 bucket.
+        :param metadata: Dictionary of new metadata to attach to the object.
+        :param stdout: Whether to print update information.
+        :return: True if update is successful, False otherwise.
+        """
+        if not self.get_headers(object_key, stderr=False):
+            print(f"[red]|ERROR| Object [cyan]{object_key}[/] not found.")
+            return False
+
+        if stdout:
+            print(f"[green]|INFO| Updating metadata for [cyan]{self.bucket}/{object_key}[/]")
+
+        try:
+            self.s3.copy_object(
+                Bucket=self.bucket,
+                Key=object_key,
+                CopySource={'Bucket': self.bucket, 'Key': object_key},
+                Metadata=metadata,
+                MetadataDirective='REPLACE'
+            )
+            return True
+        except Exception as e:
+            print(f"[red]|ERROR| Failed to update metadata: {str(e)}")
+            return False
+
+    def get_last_modified(self, object_key: str) -> datetime | None:
+        """
+        Get the last modified date of an object in the S3 bucket.
+        :param object_key: Key of the object in the S3 bucket.
+        :return: Last modified date of the object.
+        """
+        headers = self.get_headers(object_key)
+        return headers['LastModified'] if headers else None
+
+    def get_response_headers(self, object_key: str) -> dict | None:
+        """
+        Get the response headers of an object in the S3 bucket.
+        :param object_key: Key of the object in the S3 bucket.
+        :return: Response headers of the object.
+        """
+        headers = self.get_headers(object_key)
+        return headers['ResponseMetadata']['HTTPHeaders'] if headers else None
 
     def get_sha256(self, object_key: str) -> str | None:
         """
