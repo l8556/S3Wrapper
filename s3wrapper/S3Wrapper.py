@@ -73,17 +73,22 @@ class S3Wrapper:
             print(f"[red]|ERROR| Object {object_key} not found.")
             return False
 
-    def upload(self, file_path: str, object_key: str,  stdout: bool = True) -> None:
+    def upload(self, file_path: str, object_key: str, stdout: bool = True, metadata: dict = None) -> None:
         """
         Upload a file to the S3 bucket.
         :param file_path: Local path of the file to upload.
         :param object_key: Key of the object in the S3 bucket.
         :param stdout: Whether to print upload information.
+        :param metadata: Dictionary of metadata to attach to the object.
         """
         if stdout:
             print(f"[green]|INFO| Uploading [cyan]{basename(file_path)}[/] to [cyan]{self.bucket}/{object_key}[/]")
 
-        self.s3.upload_file(file_path, self.bucket, object_key)
+        extra_args = {}
+        if metadata:
+            extra_args['Metadata'] = metadata
+
+        self.s3.upload_file(file_path, self.bucket, object_key, ExtraArgs=extra_args if extra_args else None)
 
     def get_headers(self, object_key: str, stderr: bool = True) -> bool | dict:
         """
