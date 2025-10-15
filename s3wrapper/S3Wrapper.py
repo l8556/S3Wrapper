@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import hashlib
 from os.path import basename
+from datetime import datetime
 
 from rich.prompt import Prompt
 
@@ -114,6 +115,33 @@ class S3Wrapper:
         """
         headers = self.get_headers(object_key)
         return headers['ContentLength'] if headers else 0
+
+    def get_metadata(self, object_key: str) -> dict | None:
+        """
+        Get the metadata of an object in the S3 bucket.
+        :param object_key: Key of the object in the S3 bucket.
+        :return: Metadata of the object.
+        """
+        headers = self.get_headers(object_key)
+        return headers['Metadata'] if headers else None
+
+    def get_last_modified(self, object_key: str) -> datetime | None:
+        """
+        Get the last modified date of an object in the S3 bucket.
+        :param object_key: Key of the object in the S3 bucket.
+        :return: Last modified date of the object.
+        """
+        headers = self.get_headers(object_key)
+        return headers['LastModified'] if headers else None
+
+    def get_response_headers(self, object_key: str) -> dict | None:
+        """
+        Get the response headers of an object in the S3 bucket.
+        :param object_key: Key of the object in the S3 bucket.
+        :return: Response headers of the object.
+        """
+        headers = self.get_headers(object_key)
+        return headers['ResponseMetadata']['HTTPHeaders'] if headers else None
 
     def get_sha256(self, object_key: str) -> str | None:
         """
