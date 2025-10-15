@@ -125,6 +125,35 @@ class S3Wrapper:
         headers = self.get_headers(object_key)
         return headers['Metadata'] if headers else None
 
+    def update_metadata(self, object_key: str, metadata: dict, stdout: bool = False) -> bool:
+        """
+        Update the metadata of an existing object in the S3 bucket.
+        This operation copies the object to itself with new metadata.
+        :param object_key: Key of the object in the S3 bucket.
+        :param metadata: Dictionary of new metadata to attach to the object.
+        :param stdout: Whether to print update information.
+        :return: True if update is successful, False otherwise.
+        """
+        if not self.get_headers(object_key, stderr=False):
+            print(f"[red]|ERROR| Object [cyan]{object_key}[/] not found.")
+            return False
+
+        if stdout:
+            print(f"[green]|INFO| Updating metadata for [cyan]{self.bucket}/{object_key}[/]")
+
+        try:
+            self.s3.copy_object(
+                Bucket=self.bucket,
+                Key=object_key,
+                CopySource={'Bucket': self.bucket, 'Key': object_key},
+                Metadata=metadata,
+                MetadataDirective='REPLACE'
+            )
+            return True
+        except Exception as e:
+            print(f"[red]|ERROR| Failed to update metadata: {str(e)}")
+            return False
+
     def get_last_modified(self, object_key: str) -> datetime | None:
         """
         Get the last modified date of an object in the S3 bucket.
