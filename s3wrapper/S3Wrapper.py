@@ -66,9 +66,7 @@ class S3Wrapper:
             sub_prefixes.extend(cp['Prefix'] for cp in page.get('CommonPrefixes', []))
 
         if sub_prefixes:
-            # Cap workers at the connection pool size to avoid threads idling on connections
-            max_pool_connections = self.s3.meta.config.max_pool_connections
-            max_workers = min(max_pool_connections, len(sub_prefixes))
+            max_workers = min(self.s3.meta.config.max_pool_connections, len(sub_prefixes))
             with ThreadPoolExecutor(max_workers=max_workers) as executor:
                 for chunk in executor.map(self._list_keys, sub_prefixes):
                     keys.extend(chunk)
