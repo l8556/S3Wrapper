@@ -201,6 +201,56 @@ class S3Wrapper:
             print(f"[red]|ERROR| Error while retrieving a file from S3: {e}")
             return None
 
+    def add_checksum(self, object_key: str, checksum_algorithm: str = 'SHA256', stdout: bool = True) -> bool:
+        """
+        Add a server-side checksum to an existing object without downloading it.
+        Skips objects that already have a non-composite checksum.
+        :param object_key: Key of the object in the S3 bucket.
+        :param checksum_algorithm: Algorithm of the checksum.
+        :param stdout: Whether to print progress information.
+        :return: True if the checksum was added or already present, False on error.
+        """
+        if self._get_stored_sha256(object_key, checksum_algorithm):
+            print(f"[green]|INFO| [cyan]{object_key}[/] already has a checksum.") if stdout else None
+            return True
+
+        headers = self.get_headers(object_key)
+        if not headers:
+            return False
+
+        if stdout:
+            print(f"[green]|INFO| Adding {checksum_algorithm} checksum to [cyan]{self.bucket}/{object_key}[/]")
+
+        if headers['ContentLength'] > 5 * 1024 ** 3:
+            print(f"[red]|ERROR| Object [cyan]{object_key}[/] is too large to add checksum.")
+            return False
+
+        try:
+            # S3 forbids a self-copy that changes nothing, so metadata must be replaced
+            # explicitly (re-applying the existing values) for the checksum to be stored.
+            self.s3.copy_object(
+                Bucket=self.bucket,
+                Key=object_key,
+                CopySource={'Bucket': self.bucket, 'Key': object_key},
+                ChecksumAlgorithm=checksum_algorithm,
+                MetadataDirective='REPLACE',
+                Metadata=headers.get('Metadata', {}),
+                ContentType=headers.get('ContentType', 'binary/octet-stream')
+            )
+            return True
+        except Exception as e:
+            print(f"[red]|ERROR| Failed to add checksum to [cyan]{object_key}[/]: {e}")
+            return False
+
+    def add_checksums_all(self, s3_dir: str = None, checksum_algorithm: str = 'SHA256') -> None:
+        """
+        Add checksums to all objects in the bucket that don't have one yet.
+        :param s3_dir: Optional directory prefix to limit processing.
+        :param checksum_algorithm: Algorithm of the checksum.
+        """
+        for object_key in self.get_files(s3_dir):
+            self.add_checksum(object_key, checksum_algorithm)
+
     def delete(self, object_key: str, warning_msg: bool = True) -> None:
         """
         Delete an object from the S3 bucket.
