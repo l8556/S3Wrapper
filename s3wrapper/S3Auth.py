@@ -8,12 +8,10 @@ class S3Auth:
     """
     Class for managing authentication credentials for AWS S3.
     """
-    # Connection pool size; also used as the upper bound for parallel listing workers
-    MAX_POOL_CONNECTIONS: int = 25
 
-    def __init__(self, region_name: str, access_key: str = None, secret_access_key: str = None, max_pool_connections: int = MAX_POOL_CONNECTIONS):
+    def __init__(self, region_name: str, access_key: str = None, secret_access_key: str = None, max_pool_connections: int = None):
         self.region_name = region_name
-        self.max_pool_connections = max_pool_connections
+        self.max_pool_connections = max_pool_connections or self._get_auto_pool_size()
         self.client = self._create_client(access_key, secret_access_key)
 
     def _create_client(self, access_key: str = None, secret_access_key: str = None) -> boto3.client:
@@ -49,6 +47,18 @@ class S3Auth:
             )
 
         return self._file_read(access_key_path), self._file_read(secret_access_key_path)
+
+    @staticmethod
+    def _get_auto_pool_size() -> int:
+        """
+        Pick a connection pool size based on the host's CPU count.
+
+        Listing is I/O-bound, so cores are oversubscribed, while the bounds keep it
+        light on weak machines and avoid pointless threads on large ones.
+        :return: Connection pool size, clamped to the 8..32 range.
+        """
+        cores = os.cpu_count() or 1
+        return max(10, min(32, cores * 4))
 
     def _file_read(self, path: str) -> str:
         """
