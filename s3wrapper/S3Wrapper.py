@@ -44,20 +44,21 @@ class S3Wrapper:
         if isinstance(s3_dir, str):
             normalized = re.sub(r'/+', '/', s3_dir.replace('\\', '/')).strip('/')
             prefix = f'{normalized}/' if normalized else ''
-        return [file for file in self.get_objects() if file.startswith(prefix) and not file.endswith('/')]
+        return [key for key in self.get_objects(prefix) if not key.endswith('/')]
 
-    def get_objects(self) -> list:
+    def get_objects(self, prefix: str = '') -> list:
         """
-        Get a list of all objects in the S3 bucket.
+        Get a list of object keys in the S3 bucket.
+        :param prefix: Optional key prefix to filter objects server-side.
         :return: List of object keys.
         """
-        file_names = []
-        for page in self.s3.get_paginator('list_objects_v2').paginate(Bucket=self.bucket):
-            if 'Contents' in page:
-                file_names.extend([obj['Key'] for obj in page['Contents']])
-        if not file_names:
+        params = {'Bucket': self.bucket}
+        if prefix:
+            params['Prefix'] = prefix
+        keys = [key for key in self.s3.get_paginator('list_objects_v2').paginate(**params).search('Contents[].Key') if key]
+        if not keys:
             print("[red]|INFO| Bucket is empty.")
-        return file_names
+        return keys
 
     def download(self, object_key: str, download_path: str, stdout: bool = True) -> bool:
         """
