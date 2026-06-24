@@ -2,6 +2,7 @@
 import base64
 import hashlib
 import re
+from concurrent.futures import ThreadPoolExecutor
 from os.path import basename
 from datetime import datetime
 
@@ -49,13 +50,29 @@ class S3Wrapper:
     def get_objects(self, prefix: str = '') -> list:
         """
         Get a list of object keys in the S3 bucket.
+
+        A single prefix is listed sequentially by S3 (each page depends on the previous
+        continuation token), so listing is parallelized across top-level sub-prefixes
+        discovered with a delimiter, then merged.
         :param prefix: Optional key prefix to filter objects server-side.
         :return: List of object keys.
         """
-        params = {'Bucket': self.bucket}
+        partitions = {'Bucket': self.bucket, 'Delimiter': '/'}
         if prefix:
-            params['Prefix'] = prefix
-        keys = [key for key in self.s3.get_paginator('list_objects_v2').paginate(**params).search('Contents[].Key') if key]
+            partitions['Prefix'] = prefix
+        keys, sub_prefixes = [], []
+        for page in self.s3.get_paginator('list_objects_v2').paginate(**partitions):
+            keys.extend(obj['Key'] for obj in page.get('Contents', []))
+            sub_prefixes.extend(cp['Prefix'] for cp in page.get('CommonPrefixes', []))
+
+        if sub_prefixes:
+            # Cap workers at the connection pool size to avoid threads idling on connections
+            max_pool_connections = self.s3.meta.config.max_pool_connections
+            max_workers = min(max_pool_connections, len(sub_prefixes))
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                for chunk in executor.map(self._list_keys, sub_prefixes):
+                    keys.extend(chunk)
+
         if not keys:
             print("[red]|INFO| Bucket is empty.")
         return keys
@@ -290,6 +307,15 @@ class S3Wrapper:
             return [bucket['Name'] for bucket in self.s3.list_buckets()['Buckets']]
         except KeyError:
             raise S3Exception(f"[red]|ERROR| Error while getting bucket list from AWS.")
+
+    def _list_keys(self, prefix: str) -> list:
+        """
+        List every object key under a single prefix.
+        :param prefix: Key prefix to list recursively.
+        :return: List of object keys.
+        """
+        paginator = self.s3.get_paginator('list_objects_v2')
+        return [key for key in paginator.paginate(Bucket=self.bucket, Prefix=prefix).search('Contents[].Key') if key]
 
     def _get_stored_sha256(self, object_key: str, checksum_algorithm: str = 'SHA256') -> str | None:
         """
