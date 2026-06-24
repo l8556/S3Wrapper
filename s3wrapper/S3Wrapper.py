@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import base64
 import hashlib
+import re
 from os.path import basename
 from datetime import datetime
 
@@ -41,7 +42,8 @@ class S3Wrapper:
         """
         s3_objects = self.get_objects()
         if isinstance(s3_dir, str):
-            return [file for file in s3_objects if file.startswith(s3_dir) and not file.endswith('/')]
+            _s3_dir = re.sub(r'/+', '/', s3_dir.replace('\\', '/')).strip('/')
+            return [file for file in s3_objects if file.startswith(f'{_s3_dir}/' if _s3_dir else '') and not file.endswith('/')]
         return [file for file in s3_objects if not file.endswith('/')]
 
     def get_objects(self) -> list:
