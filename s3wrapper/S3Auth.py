@@ -1,15 +1,19 @@
 # -*- coding: utf-8 -*-
 import os
 import boto3
+from botocore.config import Config
 
 
 class S3Auth:
     """
     Class for managing authentication credentials for AWS S3.
     """
+    # Connection pool size; also used as the upper bound for parallel listing workers
+    MAX_POOL_CONNECTIONS: int = 25
 
-    def __init__(self, region_name: str, access_key: str = None, secret_access_key: str = None):
+    def __init__(self, region_name: str, access_key: str = None, secret_access_key: str = None, max_pool_connections: int = MAX_POOL_CONNECTIONS):
         self.region_name = region_name
+        self.max_pool_connections = max_pool_connections
         self.client = self._create_client(access_key, secret_access_key)
 
     def _create_client(self, access_key: str = None, secret_access_key: str = None) -> boto3.client:
@@ -25,7 +29,8 @@ class S3Auth:
             's3',
             aws_access_key_id=access_key,
             aws_secret_access_key=secret_access_key,
-            region_name=self.region_name
+            region_name=self.region_name,
+            config=Config(max_pool_connections=self.max_pool_connections)
         )
 
     def _read_keys(self, key_location: str = os.path.join(os.path.expanduser("~"), '.s3')) -> tuple[str, str]:

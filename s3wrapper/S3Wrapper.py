@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 import base64
 import hashlib
+import re
+from concurrent.futures import ThreadPoolExecutor
 from os.path import basename
 from datetime import datetime
 
@@ -39,23 +41,39 @@ class S3Wrapper:
         :param s3_dir: Optional directory path in the S3 bucket.
         :return: List of file names.
         """
-        s3_objects = self.get_objects()
+        prefix = ''
         if isinstance(s3_dir, str):
-            return [file for file in s3_objects if file.startswith(s3_dir) and not file.endswith('/')]
-        return [file for file in s3_objects if not file.endswith('/')]
+            normalized = re.sub(r'/+', '/', s3_dir.replace('\\', '/')).strip('/')
+            prefix = f'{normalized}/' if normalized else ''
+        return [key for key in self.get_objects(prefix) if not key.endswith('/')]
 
-    def get_objects(self) -> list:
+    def get_objects(self, prefix: str = '') -> list:
         """
-        Get a list of all objects in the S3 bucket.
+        Get a list of object keys in the S3 bucket.
+
+        A single prefix is listed sequentially by S3 (each page depends on the previous
+        continuation token), so listing is parallelized across top-level sub-prefixes
+        discovered with a delimiter, then merged.
+        :param prefix: Optional key prefix to filter objects server-side.
         :return: List of object keys.
         """
-        file_names = []
-        for page in self.s3.get_paginator('list_objects_v2').paginate(Bucket=self.bucket):
-            if 'Contents' in page:
-                file_names.extend([obj['Key'] for obj in page['Contents']])
-        if not file_names:
+        partitions = {'Bucket': self.bucket, 'Delimiter': '/'}
+        if prefix:
+            partitions['Prefix'] = prefix
+        keys, sub_prefixes = [], []
+        for page in self.s3.get_paginator('list_objects_v2').paginate(**partitions):
+            keys.extend(obj['Key'] for obj in page.get('Contents', []))
+            sub_prefixes.extend(cp['Prefix'] for cp in page.get('CommonPrefixes', []))
+
+        if sub_prefixes:
+            max_workers = min(self.s3.meta.config.max_pool_connections, len(sub_prefixes))
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                for chunk in executor.map(self._list_keys, sub_prefixes):
+                    keys.extend(chunk)
+
+        if not keys:
             print("[red]|INFO| Bucket is empty.")
-        return file_names
+        return keys
 
     def download(self, object_key: str, download_path: str, stdout: bool = True) -> bool:
         """
@@ -287,6 +305,15 @@ class S3Wrapper:
             return [bucket['Name'] for bucket in self.s3.list_buckets()['Buckets']]
         except KeyError:
             raise S3Exception(f"[red]|ERROR| Error while getting bucket list from AWS.")
+
+    def _list_keys(self, prefix: str) -> list:
+        """
+        List every object key under a single prefix.
+        :param prefix: Key prefix to list recursively.
+        :return: List of object keys.
+        """
+        paginator = self.s3.get_paginator('list_objects_v2')
+        return [key for key in paginator.paginate(Bucket=self.bucket, Prefix=prefix).search('Contents[].Key') if key]
 
     def _get_stored_sha256(self, object_key: str, checksum_algorithm: str = 'SHA256') -> str | None:
         """
