@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import base64
 import hashlib
 from os.path import basename
 from datetime import datetime
@@ -74,7 +75,7 @@ class S3Wrapper:
             print(f"[red]|ERROR| Object {object_key} not found.")
             return False
 
-    def upload(self, file_path: str, object_key: str, stdout: bool = True, metadata: dict = None) -> None:
+    def upload(self, file_path: str, object_key: str, stdout: bool = True, metadata: dict = None, checksum_algorithm: bool = 'SHA256') -> None:
         """
         Upload a file to the S3 bucket.
         :param file_path: Local path of the file to upload.
@@ -85,9 +86,14 @@ class S3Wrapper:
         if stdout:
             print(f"[green]|INFO| Uploading [cyan]{basename(file_path)}[/] to [cyan]{self.bucket}/{object_key}[/]")
 
+        # Ask S3 to compute and store a full-object SHA256 checksum on the server side.
+        # This lets get_sha256 read the hash later without downloading the object.
         extra_args = {}
         if metadata:
             extra_args['Metadata'] = metadata
+
+        if checksum_algorithm:
+            extra_args['ChecksumAlgorithm'] = checksum_algorithm
 
         self.s3.upload_file(file_path, self.bucket, object_key, ExtraArgs=extra_args if extra_args else None)
 
@@ -172,18 +178,78 @@ class S3Wrapper:
         headers = self.get_headers(object_key)
         return headers['ResponseMetadata']['HTTPHeaders'] if headers else None
 
-    def get_sha256(self, object_key: str) -> str | None:
+    def get_sha256(self, object_key: str, checksum_algorithm: str = 'SHA256') -> str | None:
         """
-        Get the SHA256 hash of an object in the S3 bucket.
+        Get the hash of the object in the S3 bucket.
+        First tries the server-side checksum stored by S3 (no download needed);
+        falls back to streaming the object and hashing it locally.
         :param object_key: Key of the object in the S3 bucket.
-        :return: SHA256 hash of the object.
+        :param checksum_algorithm: Algorithm of the checksum.
+        :return: Hash of the object as a hex string.
         """
+        stored = self._get_stored_sha256(object_key, checksum_algorithm)
+        if stored:
+            return stored
+
         try:
-            file_contents = self.s3.get_object(Bucket=self.bucket, Key=object_key)['Body'].read()
-            return hashlib.sha256(file_contents).hexdigest()
+            sha256 = hashlib.new(checksum_algorithm)
+            stream = self.s3.get_object(Bucket=self.bucket, Key=object_key)['Body']
+            for chunk in stream.iter_chunks(1024 * 1024):
+                sha256.update(chunk)
+            return sha256.hexdigest()
         except Exception as e:
             print(f"[red]|ERROR| Error while retrieving a file from S3: {e}")
             return None
+
+    def add_checksum(self, object_key: str, checksum_algorithm: str = 'SHA256', stdout: bool = True) -> bool:
+        """
+        Add a server-side checksum to an existing object without downloading it.
+        Skips objects that already have a non-composite checksum.
+        :param object_key: Key of the object in the S3 bucket.
+        :param checksum_algorithm: Algorithm of the checksum.
+        :param stdout: Whether to print progress information.
+        :return: True if the checksum was added or already present, False on error.
+        """
+        if self._get_stored_sha256(object_key, checksum_algorithm):
+            print(f"[green]|INFO| [cyan]{object_key}[/] already has a checksum.") if stdout else None
+            return True
+
+        headers = self.get_headers(object_key)
+        if not headers:
+            return False
+
+        if stdout:
+            print(f"[green]|INFO| Adding {checksum_algorithm} checksum to [cyan]{self.bucket}/{object_key}[/]")
+
+        if headers['ContentLength'] > 5 * 1024 ** 3:
+            print(f"[red]|ERROR| Object [cyan]{object_key}[/] is too large to add checksum.")
+            return False
+
+        try:
+            # S3 forbids a self-copy that changes nothing, so metadata must be replaced
+            # explicitly (re-applying the existing values) for the checksum to be stored.
+            self.s3.copy_object(
+                Bucket=self.bucket,
+                Key=object_key,
+                CopySource={'Bucket': self.bucket, 'Key': object_key},
+                ChecksumAlgorithm=checksum_algorithm,
+                MetadataDirective='REPLACE',
+                Metadata=headers.get('Metadata', {}),
+                ContentType=headers.get('ContentType', 'binary/octet-stream')
+            )
+            return True
+        except Exception as e:
+            print(f"[red]|ERROR| Failed to add checksum to [cyan]{object_key}[/]: {e}")
+            return False
+
+    def add_checksums_all(self, s3_dir: str = None, checksum_algorithm: str = 'SHA256') -> None:
+        """
+        Add checksums to all objects in the bucket that don't have one yet.
+        :param s3_dir: Optional directory prefix to limit processing.
+        :param checksum_algorithm: Algorithm of the checksum.
+        """
+        for object_key in self.get_files(s3_dir):
+            self.add_checksum(object_key, checksum_algorithm)
 
     def delete(self, object_key: str, warning_msg: bool = True) -> None:
         """
@@ -221,6 +287,27 @@ class S3Wrapper:
             return [bucket['Name'] for bucket in self.s3.list_buckets()['Buckets']]
         except KeyError:
             raise S3Exception(f"[red]|ERROR| Error while getting bucket list from AWS.")
+
+    def _get_stored_sha256(self, object_key: str, checksum_algorithm: str = 'SHA256') -> str | None:
+        """
+        Read the SHA256 checksum that S3 stored for the object, without downloading it.
+        Returns None for multipart (composite) checksums or when no checksum is stored.
+        :param object_key: Key of the object in the S3 bucket.
+        :param checksum_algorithm: Algorithm of the checksum.
+        :return: SHA256 hash as a hex string, or None if unavailable.
+        """
+        try:
+            response = self.s3.get_object_attributes(
+                Bucket=self.bucket,
+                Key=object_key,
+                ObjectAttributes=['Checksum']
+            )
+            checksum_b64 = response.get('Checksum', {}).get(f'Checksum{checksum_algorithm}')
+            if not checksum_b64 or '-' in checksum_b64:
+                return None
+            return base64.b64decode(checksum_b64).hex()
+        except Exception:
+            return None
 
     def _check_bucket_name(self, bucket_name: str) -> str | None:
         """
