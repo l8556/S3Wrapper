@@ -72,7 +72,7 @@ class S3Wrapper:
                     keys.extend(chunk)
 
         if not keys:
-            print("[red]|INFO| Bucket is empty.")
+            print(f"[red]|INFO| Bucket [cyan]{self.bucket}[/]{f' with prefix [cyan]{prefix}[/]' if prefix else ''} is empty.")
         return keys
 
     def download(self, object_key: str, download_path: str, stdout: bool = True) -> bool:
