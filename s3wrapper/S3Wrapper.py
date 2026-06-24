@@ -40,11 +40,11 @@ class S3Wrapper:
         :param s3_dir: Optional directory path in the S3 bucket.
         :return: List of file names.
         """
-        s3_objects = self.get_objects()
+        prefix = ''
         if isinstance(s3_dir, str):
-            _s3_dir = re.sub(r'/+', '/', s3_dir.replace('\\', '/')).strip('/')
-            return [file for file in s3_objects if file.startswith(f'{_s3_dir}/' if _s3_dir else '') and not file.endswith('/')]
-        return [file for file in s3_objects if not file.endswith('/')]
+            normalized = re.sub(r'/+', '/', s3_dir.replace('\\', '/')).strip('/')
+            prefix = f'{normalized}/' if normalized else ''
+        return [file for file in self.get_objects() if file.startswith(prefix) and not file.endswith('/')]
 
     def get_objects(self) -> list:
         """
