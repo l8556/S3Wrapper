@@ -6,7 +6,7 @@ retrieving metadata or hashes from S3 buckets.
 
 ## Requirements
 
-* Python 3.9+
+* Python 3.10+
 
 ## Features
 

@@ -4,7 +4,7 @@ version = "0.1.0"
 description = ""
 authors = [{ name = "l02", email = "l8556@outlook.com" }]
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
     "rich",
     "boto3>=1.42,<2",
@@ -12,7 +12,6 @@ dependencies = [
 classifiers = [
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: Implementation :: PyPy",
