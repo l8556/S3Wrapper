@@ -7,7 +7,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "rich",
-    "boto3>=1.42,<2",
+    "boto3>=1.43.37,<2",
 ]
 classifiers = [
     "Operating System :: OS Independent",
