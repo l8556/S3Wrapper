@@ -327,10 +327,13 @@ class S3Wrapper:
             response = self.s3.get_object_attributes(
                 Bucket=self.bucket,
                 Key=object_key,
-                ObjectAttributes=['Checksum']
+                ObjectAttributes=['Checksum', 'ObjectParts']
             )
-            checksum_b64 = response.get('Checksum', {}).get(f'Checksum{checksum_algorithm}')
-            if not checksum_b64 or '-' in checksum_b64:
+            checksum = response.get('Checksum', {})
+            checksum_b64 = checksum.get(f'Checksum{checksum_algorithm}')
+            # A multipart upload stores a checksum of the part checksums, not the hash of the object,
+            # and get_object_attributes returns it without the "-<parts>" suffix.
+            if not checksum_b64 or checksum.get('ChecksumType') == 'COMPOSITE' or 'ObjectParts' in response:
                 return None
             return base64.b64decode(checksum_b64).hex()
         except Exception:
