@@ -6,10 +6,14 @@ from concurrent.futures import ThreadPoolExecutor
 from os.path import basename
 from datetime import datetime
 
+from boto3.s3.transfer import TransferConfig
 from rich.prompt import Prompt
 
 from .S3Auth import S3Auth
 from rich import print
+
+# The largest object S3 accepts in a single PUT
+SINGLE_PUT_LIMIT = 5 * 1024 ** 3
 
 class S3Exception(Exception): ...
 
@@ -110,10 +114,16 @@ class S3Wrapper:
         if metadata:
             extra_args['Metadata'] = metadata
 
+        # A multipart upload gets only a composite checksum (SHA256 of the part checksums), not the hash
+        # of the file, so files up to the single PUT limit are uploaded in one request.
+        config = None
         if checksum_algorithm:
             extra_args['ChecksumAlgorithm'] = checksum_algorithm
+            config = TransferConfig(multipart_threshold=SINGLE_PUT_LIMIT)
 
-        self.s3.upload_file(file_path, self.bucket, object_key, ExtraArgs=extra_args if extra_args else None)
+        self.s3.upload_file(
+            file_path, self.bucket, object_key, ExtraArgs=extra_args if extra_args else None, Config=config
+        )
 
     def get_headers(self, object_key: str, stderr: bool = True) -> bool | dict:
         """
